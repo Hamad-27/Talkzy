@@ -1,1 +1,413 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TALKZY — Chat Together</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--orange:#ff711f;--bg:#0b0b0d;--panel:#151518;--line:#29292e;--muted:#999}
+body{background:var(--bg);color:white;font-family:Arial,sans-serif;height:100dvh;overflow:hidden}
+button,input{font:inherit}
+button{cursor:pointer;border:0}
+#app{height:100%;display:flex;flex-direction:column}
+.topbar{height:68px;background:#111114;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 22px;gap:12px}
+.logo{font-size:25px;font-weight:900;letter-spacing:2px;color:white}
+.logo span{color:var(--orange)}
+.tag{font-size:10px;color:#999;letter-spacing:2px;margin-left:auto}
+.screen{flex:1;min-height:0;display:flex}
+#auth{display:flex;align-items:center;justify-content:center;padding:20px;flex:1;overflow:auto}
+.authbox{width:100%;max-width:410px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:30px}
+.authbox h1{font-size:32px;margin-bottom:8px}
+.authbox h1 span{color:var(--orange)}
+.sub{color:var(--muted);font-size:14px;margin-bottom:25px}
+.field{margin:14px 0}
+.field label{display:block;color:#bbb;font-size:12px;margin-bottom:8px}
+.field input,.search input,.composer input{width:100%;background:#0e0e11;border:1px solid #333;color:white;padding:14px;border-radius:10px;outline:none}
+input:focus{border-color:var(--orange)}
+.primary{background:var(--orange);color:#151515;font-weight:bold;padding:13px 18px;border-radius:10px}
+.primary:hover{filter:brightness(1.1)}
+.full{width:100%;margin-top:12px}
+.switch{color:#aaa;font-size:13px;text-align:center;margin-top:20px}
+.switch button{background:none;color:var(--orange)}
+#error{color:#ff8585;font-size:13px;margin-top:12px}
+#chatapp{display:none;flex:1;min-height:0}
+.sidebar{width:340px;max-width:40%;background:#111114;border-right:1px solid var(--line);display:flex;flex-direction:column}
+.sidehead{padding:20px;border-bottom:1px solid var(--line)}
+.sidehead h2{font-size:20px}
+.sidehead h2 span{color:var(--orange)}
+.search{margin-top:15px}
+.search input{padding:12px}
+.actions{display:flex;gap:8px;margin-top:12px}
+.smallbtn{background:#252529;color:white;border:1px solid #38383e;padding:10px;border-radius:9px;font-size:12px}
+.smallbtn:hover{border-color:var(--orange)}
+.chatlist{overflow:auto;flex:1}
+.chatitem{padding:15px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #222226;cursor:pointer}
+.chatitem:hover,.chatitem.active{background:#222226}
+.avatar{width:43px;height:43px;border-radius:50%;background:linear-gradient(140deg,#ff9b49,#df4b08);display:grid;place-items:center;color:#171717;font-weight:bold;flex-shrink:0}
+.chatmeta{min-width:0;flex:1}
+.chatmeta strong{font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis}
+.chatmeta small{color:#999;font-size:12px;display:block;margin-top:5px}
+.empty{padding:25px;text-align:center;color:#888;font-size:13px}
+.profile{padding:15px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.profileinfo{flex:1;min-width:0}
+.profileinfo strong{font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis}
+.profileinfo small{font-size:11px;color:#999}
+.logout{background:none;color:#ff8150;font-size:12px}
+.conversation{flex:1;min-width:0;display:flex;flex-direction:column;background:radial-gradient(ellipse at 70% 20%,#20140f 0%,#0c0c0e 55%)}
+.chathead{height:72px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:12px 20px;gap:12px;background:#111114}
+.chathead strong{font-size:15px}
+.chathead small{display:block;color:#999;margin-top:4px;font-size:11px}
+.messages{flex:1;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:12px}
+.bubble{max-width:min(75%,520px);padding:12px 15px;border-radius:15px;background:#252529;align-self:flex-start;overflow-wrap:anywhere}
+.bubble.mine{background:#a94a16;align-self:flex-end;color:white}
+.bubble small{display:block;color:#ddd;font-size:10px;margin-top:6px;text-align:right}
+.welcome{margin:auto;text-align:center;color:#888;padding:25px}
+.welcome .big{font-size:60px;color:var(--orange);font-weight:900}
+.welcome h2{color:white;margin:15px 0}
+.composer{padding:15px 20px;display:flex;gap:10px;border-top:1px solid var(--line);background:#111114}
+.composer input{flex:1;min-width:0}
+.send{width:48px;border-radius:10px;background:var(--orange);font-weight:bold}
+.hidden{display:none!important}
+#mobileBack{display:none}
+.modal{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+.modalbox{width:100%;max-width:390px;background:#19191d;border:1px solid #444;border-radius:17px;padding:22px}
+.modalbox h2{margin-bottom:18px}
+.modalbox input{width:100%;margin-bottom:12px;background:#0c0c0e;border:1px solid #444;color:white;padding:13px;border-radius:9px}
+.modalbuttons{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
+@media(max-width:650px){
+ .topbar{height:58px;padding:0 15px}
+ .sidebar{width:100%;max-width:100%;border:0}
+ .conversation{display:none}
+ #chatapp.chatopen .sidebar{display:none}
+ #chatapp.chatopen .conversation{display:flex}
+ #mobileBack{display:block;background:#252529;color:white;padding:9px 12px;border-radius:8px}
+ .tag{font-size:9px}
+ .messages{padding:14px}
+ .composer{padding:10px}
+}
+</style>
+</head>
+
+<body>
+<div id="app">
+<header class="topbar">
+ <div class="logo">TALK<span>ZY.</span></div>
+ <div class="tag">YOUR PRIVATE CHAT SPACE</div>
+</header>
+
+<section id="auth">
+ <div class="authbox">
+  <h1>Welcome to <span>TALKZY</span></h1>
+  <p class="sub" id="authSubtitle">Connect with your friends and family.</p>
+  <div id="nameField" class="field hidden">
+   <label>Your name</label>
+   <input id="displayName" placeholder="Enter your name">
+  </div>
+  <div class="field">
+   <label>Email address</label>
+   <input id="email" type="email" placeholder="you@example.com">
+  </div>
+  <div class="field">
+   <label>Password</label>
+   <input id="password" type="password" placeholder="At least 6 characters">
+  </div>
+  <button class="primary full" id="authButton" onclick="authenticate()">Login</button>
+  <div id="error"></div>
+  <p class="switch"><span id="switchText">New to TALKZY?</span>
+   <button onclick="toggleAuth()" id="switchButton">Create account</button>
+  </p>
+ </div>
+</section>
+
+<section id="chatapp" class="screen">
+ <aside class="sidebar">
+  <div class="sidehead">
+   <h2>Your <span>Chats.</span></h2>
+   <div class="search"><input id="filter" placeholder="Search conversations..." oninput="filterChats()"></div>
+   <div class="actions">
+    <button class="smallbtn" onclick="openModal('privateModal')">+ New chat</button>
+    <button class="smallbtn" onclick="openModal('groupModal')">+ New group</button>
+   </div>
+  </div>
+  <div id="chatlist" class="chatlist">
+   <div class="empty">Your conversations will appear here.</div>
+  </div>
+  <div class="profile">
+   <div class="avatar" id="myAvatar">T</div>
+   <div class="profileinfo">
+    <strong id="myName">User</strong>
+    <small>Signed in</small>
+   </div>
+   <button class="logout" onclick="logout()">Logout</button>
+  </div>
+ </aside>
+
+ <main class="conversation">
+  <div class="welcome" id="welcome">
+   <div class="big">T.</div>
+   <h2>Welcome to TALKZY</h2>
+   <p>Choose a conversation or create a new group.</p>
+  </div>
+  <div id="activeChat" class="hidden" style="display:flex;flex-direction:column;flex:1;min-height:0">
+   <div class="chathead">
+    <button id="mobileBack" onclick="backToList()">←</button>
+    <div class="avatar" id="chatAvatar">T</div>
+    <div><strong id="chatTitle">Conversation</strong><small id="chatSubtitle">TALKZY chat</small></div>
+   </div>
+   <div id="messages" class="messages"></div>
+   <div class="composer">
+    <input id="messageInput" placeholder="Write a message..." onkeydown="if(event.key==='Enter')sendMessage()">
+    <button class="send" onclick="sendMessage()">➤</button>
+   </div>
+  </div>
+ </main>
+</section>
+</div>
+
+<div class="modal" id="privateModal">
+ <div class="modalbox">
+  <h2>Start a private chat</h2>
+  <input id="privateEmail" type="email" placeholder="Friend's registered email">
+  <div id="privateError" style="color:#ff8888;font-size:12px"></div>
+  <div class="modalbuttons">
+   <button class="smallbtn" onclick="closeModal('privateModal')">Cancel</button>
+   <button class="primary" onclick="createPrivate()">Start chat</button>
+  </div>
+ </div>
+</div>
+
+<div class="modal" id="groupModal">
+ <div class="modalbox">
+  <h2>Create a group</h2>
+  <input id="groupName" placeholder="Group name">
+  <input id="groupEmails" placeholder="Member emails, separated by commas">
+  <div id="groupError" style="color:#ff8888;font-size:12px"></div>
+  <div class="modalbuttons">
+   <button class="smallbtn" onclick="closeModal('groupModal')">Cancel</button>
+   <button class="primary" onclick="createGroup()">Create group</button>
+  </div>
+ </div>
+</div>
+
+<script>
+// 1. REPLACE THIS CONFIG WITH YOUR FIREBASE WEB APP CONFIG
+const firebaseConfig = {
+ apiKey: "PASTE_YOUR_API_KEY",
+ authDomain: "PASTE_YOUR_AUTH_DOMAIN",
+ projectId: "PASTE_YOUR_PROJECT_ID",
+ storageBucket: "PASTE_YOUR_STORAGE_BUCKET",
+ messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
+ appId: "PASTE_YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let signupMode=false;
+let currentUser=null;
+let currentChat=null;
+let chatUnsubscribe=null;
+let messageUnsubscribe=null;
+let allChats=[];
+
+function toggleAuth(){
+ signupMode=!signupMode;
+ document.getElementById('nameField').classList.toggle('hidden',!signupMode);
+ document.getElementById('authButton').textContent=signupMode?'Create account':'Login';
+ document.getElementById('authSubtitle').textContent=signupMode?'Create your TALKZY account.':'Connect with your friends and family.';
+ document.getElementById('switchText').textContent=signupMode?'Already have an account?':'New to TALKZY?';
+ document.getElementById('switchButton').textContent=signupMode?'Login':'Create account';
+ document.getElementById('error').textContent='';
+}
+
+async function authenticate(){
+ const email=document.getElementById('email').value.trim().toLowerCase();
+ const password=document.getElementById('password').value;
+ const name=document.getElementById('displayName').value.trim();
+ const error=document.getElementById('error');
+ error.textContent='';
+ try{
+  if(!email||!password)throw Error('Enter your email and password.');
+  if(signupMode){
+   if(!name)throw Error('Enter your name.');
+   if(password.length<6)throw Error('Password must have at least 6 characters.');
+   const result=await auth.createUserWithEmailAndPassword(email,password);
+   await db.collection('users').doc(result.user.uid).set({
+    name:name,email:email,createdAt:firebase.firestore.FieldValue.serverTimestamp()
+   });
+  }else{
+   await auth.signInWithEmailAndPassword(email,password);
+  }
+ }catch(e){error.textContent=e.message;}
+}
+
+auth.onAuthStateChanged(async user=>{
+ if(user){
+  currentUser=user;
+  try{
+   const doc=await db.collection('users').doc(user.uid).get();
+   if(!doc.exists){
+    await db.collection('users').doc(user.uid).set({
+     name:user.email.split('@')[0],email:user.email
+    });
+   }
+   showChats();
+  }catch(e){
+   document.getElementById('error').textContent='Database access is not configured yet. Please check Firestore rules.';
+   await auth.signOut();
+  }
+ }else{
+  currentUser=null;
+  document.getElementById('auth').style.display='flex';
+  document.getElementById('chatapp').style.display='none';
+ }
+});
+
+async function showChats(){
+ document.getElementById('auth').style.display='none';
+ document.getElementById('chatapp').style.display='flex';
+ const userDoc=await db.collection('users').doc(currentUser.uid).get();
+ const name=userDoc.data()?.name||currentUser.email;
+ document.getElementById('myName').textContent=name;
+ document.getElementById('myAvatar').textContent=name[0].toUpperCase();
+ if(chatUnsubscribe)chatUnsubscribe();
+ chatUnsubscribe=db.collection('chats').where('members','array-contains',currentUser.uid)
+ .onSnapshot(snapshot=>{
+  allChats=snapshot.docs.map(d=>({id:d.id,...d.data()}));
+  renderChats();
+ },e=>console.error(e));
+}
+
+function renderChats(){
+ const list=document.getElementById('chatlist');
+ list.innerHTML='';
+ if(!allChats.length){
+  list.innerHTML='<div class="empty">No chats yet.<br>Create a private chat or group!</div>';
+  return;
+ }
+ allChats.forEach(chat=>{
+  const title=chat.name||'Private conversation';
+  const item=document.createElement('div');
+  item.className='chatitem'+(currentChat===chat.id?' active':'');
+  const avatar=document.createElement('div');avatar.className='avatar';avatar.textContent=title[0].toUpperCase();
+  const meta=document.createElement('div');meta.className='chatmeta';
+  const strong=document.createElement('strong');strong.textContent=title;
+  const small=document.createElement('small');small.textContent=chat.type==='group'?'Group conversation':'Private conversation';
+  meta.append(strong,small);item.append(avatar,meta);
+  item.onclick=()=>openChat(chat.id);
+  list.append(item);
+ });
+}
+
+function filterChats(){
+ const q=document.getElementById('filter').value.toLowerCase();
+ document.querySelectorAll('.chatitem').forEach(item=>{
+  item.style.display=item.innerText.toLowerCase().includes(q)?'flex':'none';
+ });
+}
+
+async function createPrivate(){
+ const email=document.getElementById('privateEmail').value.trim().toLowerCase();
+ const error=document.getElementById('privateError');error.textContent='';
+ try{
+  if(!email||email===currentUser.email)throw Error('Enter another person's email.');
+  const users=await db.collection('users').where('email','==',email).limit(1).get();
+  if(users.empty)throw Error('No TALKZY account found with that email.');
+  const other=users.docs[0];
+  const existing=allChats.find(c=>c.type==='private'&&c.members.includes(other.id));
+  if(existing){closeModal('privateModal');openChat(existing.id);return;}
+  const ref=await db.collection('chats').add({
+   type:'private',name:other.data().name||email,
+   members:[currentUser.uid,other.id],
+   createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+   createdBy:currentUser.uid
+  });
+  closeModal('privateModal');openChat(ref.id);
+ }catch(e){error.textContent=e.message;}
+}
+
+async function createGroup(){
+ const name=document.getElementById('groupName').value.trim();
+ const emails=document.getElementById('groupEmails').value.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+ const error=document.getElementById('groupError');error.textContent='';
+ try{
+  if(!name)throw Error('Enter a group name.');
+  const members=[currentUser.uid];
+  for(const email of emails){
+   const found=await db.collection('users').where('email','==',email).limit(1).get();
+   if(found.empty)throw Error('Account not found: '+email);
+   if(!members.includes(found.docs[0].id))members.push(found.docs[0].id);
+  }
+  if(members.length<2)throw Error('Add at least one other member.');
+  const ref=await db.collection('chats').add({
+   type:'group',name:name,members:members,
+   createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+   createdBy:currentUser.uid
+  });
+  closeModal('groupModal');openChat(ref.id);
+ }catch(e){error.textContent=e.message;}
+}
+
+async function openChat(id){
+ currentChat=id;
+ const chat=allChats.find(c=>c.id===id);
+ if(!chat)return;
+ document.getElementById('welcome').classList.add('hidden');
+ document.getElementById('activeChat').classList.remove('hidden');
+ document.getElementById('chatTitle').textContent=chat.name||'Private conversation';
+ document.getElementById('chatAvatar').textContent=(chat.name||'T')[0].toUpperCase();
+ document.getElementById('chatSubtitle').textContent=chat.type==='group'?'Group chat':'Private chat';
+ document.getElementById('chatapp').classList.add('chatopen');
+ renderChats();
+ if(messageUnsubscribe)messageUnsubscribe();
+ messageUnsubscribe=db.collection('chats').doc(id).collection('messages')
+ .orderBy('createdAt','asc').onSnapshot(snapshot=>{
+  const area=document.getElementById('messages');area.innerHTML='';
+  snapshot.forEach(doc=>{
+   const m=doc.data();
+   const bubble=document.createElement('div');
+   bubble.className='bubble'+(m.senderId===currentUser.uid?' mine':'');
+   const body=document.createElement('div');body.textContent=m.text;
+   const time=document.createElement('small');
+   time.textContent=(m.senderName||'User')+' · '+(m.createdAt?.toDate?m.createdAt.toDate().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'');
+   bubble.append(body,time);area.append(bubble);
+  });
+  area.scrollTop=area.scrollHeight;
+ },e=>console.error(e));
+}
+
+async function sendMessage(){
+ const input=document.getElementById('messageInput');
+ const text=input.value.trim();
+ if(!text||!currentChat)return;
+ input.value='';
+ try{
+  const user=await db.collection('users').doc(currentUser.uid).get();
+  await db.collection('chats').doc(currentChat).collection('messages').add({
+   text:text,senderId:currentUser.uid,
+   senderName:user.data()?.name||'User',
+   createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+ }catch(e){alert('Message could not be sent: '+e.message);input.value=text;}
+}
+
+function logout(){
+ if(chatUnsubscribe)chatUnsubscribe();
+ if(messageUnsubscribe)messageUnsubscribe();
+ auth.signOut();
+}
+function openModal(id){document.getElementById(id).style.display='flex';}
+function closeModal(id){document.getElementById(id).style.display='none';}
+function backToList(){document.getElementById('chatapp').classList.remove('chatopen');}
+</script>
+</body>
+  </html>
+
